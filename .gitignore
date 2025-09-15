@@ -1,0 +1,4 @@
+vagrant_files/.vagrant
+vagrant_files/files/ida*.hexlic
+**/.vagrant
+**/**/*.hexlic

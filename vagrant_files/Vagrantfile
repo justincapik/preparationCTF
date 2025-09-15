@@ -1,0 +1,68 @@
+
+
+Vagrant.configure("2") do |config|
+
+  WIN_IP = "192.168.56.10"
+  KALI_IP = "192.168.56.11"
+
+  config.vm.define "windows-target" do |windows|
+    windows.vm.box = "gusztavvargadr/windows-10"
+    windows.vm.hostname = "win-target"
+  
+    windows.vm.network "private_network", ip: WIN_IP, virtualbox__intnet: "sandbox_net"
+
+    windows.vm.synced_folder "files/", "C:\\vagrant", create: true
+
+    # Disable Windows defender
+    windows.vm.provision "shell", inline: <<-SHELL
+      Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender" -Name "DisableAntiSpyware" -Value 1 -Type DWord -Force
+      Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+      Set-MpPreference -SubmitSamplesConsent NeverSend -ErrorAction SilentlyContinue
+      Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled False
+
+      # Créer un utilisateur local avec mot de passe simple
+      $Password = ConvertTo-SecureString "Password123!" -AsPlainText -Force
+      New-LocalUser -Name "labuser" -Password $Password -FullName "Lab Test User" -Description "Vulnerable user for mimikatz demo"
+
+      # Ajouter aux groupes pour privilèges élevés
+      Add-LocalGroupMember -Group "Administrators" -Member "labuser"
+      Add-LocalGroupMember -Group "Remote Desktop Users" -Member "labuser"
+
+      # Forcer la connexion interactive pour charger les credentials en mémoire
+      # Activer l'auto-logon (rend les creds disponibles)
+      Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoAdminLogon" -Value "1"
+      Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "DefaultUserName" -Value "labuser"
+      Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "DefaultPassword" -Value "Password123!"
+
+      # Désactiver protections (pour démo seulement)
+      Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" -Name "UseLogonCredential" -Value 1
+
+      # Créer une session RDP ou service pour maintenir les creds en mémoire
+      Start-Process "runas" -ArgumentList "/user:labuser cmd.exe" -Wait
+    SHELL
+  
+  end
+
+  config.vm.define "kali" do |kali|
+    kali.vm.box = "kalilinux/rolling"
+    kali.vm.hostname = "kali"
+    kali.vm.box_version = "2024.4.0"
+
+    kali.vm.network "private_network", ip: KALI_IP, virtualbox__intnet: "sandbox_net"
+
+
+    kali.vm.provider "virtualbox" do |vb|
+      # Set a short, simple name for the VM
+
+      vb.memory = "4096"
+      vb.cpus = "8"
+
+      vb.name = "Kali"
+    end
+
+    # Shell provisioner to install packages
+    kali.vm.provision "shell", path: "kali_install.sh"
+  end
+
+
+end
