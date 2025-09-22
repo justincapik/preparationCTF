@@ -3,7 +3,7 @@ pour setup des VMs kali et windows:
 2. mattre en place le fichier .vagrant.d (là où sont saufgardé les box vagrantes):
 ```bash
 mkdir ~/goinfre/vagrant_home
-ln -s ~/sgoinfre/vagrant_home .vagrant.d
+ln -s ~/sgoinfre/vagrant_home ~/.vagrant.d
 ```
 3. lancer la vm:
 ```bash
